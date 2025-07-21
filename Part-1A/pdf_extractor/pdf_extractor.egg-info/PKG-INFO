@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: pdf_extractor
+Version: 0.1
+Requires-Dist: PyMuPDF
+Requires-Dist: pytesseract
+Dynamic: requires-dist

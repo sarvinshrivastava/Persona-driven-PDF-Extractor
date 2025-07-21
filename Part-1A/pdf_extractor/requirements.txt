@@ -1,0 +1,5 @@
+packaging==25.0
+-e git+ssh://git@github.com/sarvinshrivastava/Adobe-hackathon.git@0c3d1f4ef3ba87ef3d83e806b0c6cd2a3bfa3b95#egg=pdf_extractor&subdirectory=Part-1A/pdf_extractor
+pillow==11.3.0
+PyMuPDF==1.26.3
+pytesseract==0.3.13

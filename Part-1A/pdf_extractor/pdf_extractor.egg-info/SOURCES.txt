@@ -1,0 +1,6 @@
+setup.py
+pdf_extractor.egg-info/PKG-INFO
+pdf_extractor.egg-info/SOURCES.txt
+pdf_extractor.egg-info/dependency_links.txt
+pdf_extractor.egg-info/requires.txt
+pdf_extractor.egg-info/top_level.txt

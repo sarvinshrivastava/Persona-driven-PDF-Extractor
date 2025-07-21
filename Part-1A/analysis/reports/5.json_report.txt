@@ -1,0 +1,22 @@
+Similarity Score (1-10): 7.66
+==================================================
+Differences:
+
+--- ./Json_O/5.json+++ ./Json_I/5.json@@ -1,10 +1,10 @@ {
+-  "title": "TOPJUMP - PARTY INVITATION 20161003 V01.cdr",
+-  "outline": [
+-    {
+-      "level": "H1",
+-      "text": "HOPE To SEE You THERE! ",
+-      "page": 1
+-    }
+-  ]
++    "title": "",
++    "outline": [
++        {
++            "level": "H1",
++            "text": "HOPE To SEE You THERE! ",
++            "page": 0
++        }
++    ]
+ }
