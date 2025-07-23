@@ -1,86 +1,67 @@
 import fitz  # PyMuPDF
+from utils import stitch_text_lines
 
-def extract_by_prominence(doc: fitz.Document):
+def extract_title(doc: fitz.Document, ignored_bboxes=None):
     """
     Detects the document title using prominence-based heuristics on the first page.
-    This implements Step 4 of the pipeline.
-
-    Args:
-        doc: The PyMuPDF document object.
-
-    Returns:
-        The text of the most prominent block, or an empty string.
+    It now uses robust stitched lines and aggressively combines prominent,
+    vertically-stacked lines into a single title.
     """
     print("Step 4: Trying to extract title by prominence (heuristic)...")
     if doc.page_count == 0:
         return ""
 
     first_page = doc[0]
-    blocks = first_page.get_text("blocks")
+    lines = stitch_text_lines(first_page)
     
-    # Filter out small blocks and potential headers/footers
-    page_height = first_page.rect.height
-    page_width = first_page.rect.width
-    
-    potential_titles = []
-    
-    for block in blocks:
-        # block format: (x0, y0, x1, y1, "text", block_no, block_type)
-        x0, y0, x1, y1, text, _, _ = block
-        
-        # --- Filters from PDF ---
-        # 1. Remove headers/footers (e.g., top 10% or bottom 10% of the page)
-        if y0 < page_height * 0.1 or y1 > page_height * 0.9:
-            continue
-            
-        # 2. Ignore blocks without reasonable width coverage (e.g., less than 50% of page width)
-        block_width = x1 - x0
-        if block_width < page_width * 0.4:
-            continue
-            
-        # 3. Exclude URLs or watermarks (simple check)
-        if 'http' in text or 'www' in text:
+    if ignored_bboxes:
+        lines = [
+            line for line in lines 
+            if not any(line['bbox'].intersects(ignored_box) for ignored_box in ignored_bboxes)
+        ]
+
+    # Score each line for prominence
+    scored_lines = []
+    for line in lines:
+        text = line['text'].strip()
+        if not text or len(text) < 4:
             continue
 
-        # --- Calculate Prominence Score ---
-        # To get avg_font_size, we need to look at the spans within the block
-        block_text_for_spans = first_page.get_text("dict", clip=fitz.Rect(x0, y0, x1, y1))
-        total_font_size = 0
-        span_count = 0
-        for block_dict in block_text_for_spans['blocks']:
-            for line in block_dict['lines']:
-                for span in line['spans']:
-                    total_font_size += span['size']
-                    span_count += 1
+        score = line['size']
+        if line['bold']:
+            score *= 1.5
         
-        avg_font_size = total_font_size / span_count if span_count > 0 else 0
+        page_height = first_page.rect.height
+        if line['bbox'].y1 < page_height * 0.5: # Bonus for being in top half
+            score *= 1.5
         
-        block_height = y1 - y0
-        
-        # prominence = avg_font_size x block_width x block_height
-        prominence = avg_font_size * block_width * block_height
-        potential_titles.append((prominence, text.strip()))
+        line['score'] = score
+        scored_lines.append(line)
 
-    if not potential_titles:
-        print("Info: Could not determine title by prominence.")
+    if not scored_lines:
         return ""
 
-    # Select top-scoring block
-    potential_titles.sort(key=lambda x: x[0], reverse=True)
-    best_title = potential_titles[0][1]
+    scored_lines.sort(key=lambda x: x['score'], reverse=True)
     
-    print(f"Success: Found potential title by prominence: '{best_title}'")
-    return best_title
+    # Group the top 3 most prominent lines if they are stacked together
+    top_lines = scored_lines[:3]
+    top_lines.sort(key=lambda x: x['bbox'].y0) # Sort by vertical position
 
+    final_title_lines = []
+    if top_lines:
+        final_title_lines.append(top_lines[0])
+        last_line = top_lines[0]
+        
+        for i in range(1, len(top_lines)):
+            current_line = top_lines[i]
+            vertical_gap = current_line['bbox'].y0 - last_line['bbox'].y1
+            # If gap is small, it's likely part of the same title block
+            if vertical_gap < (last_line['size']):
+                final_title_lines.append(current_line)
+                last_line = current_line
 
-if __name__ == '__main__':
-    try:
-        pdf_path = "example.pdf"
-        document = fitz.open(pdf_path)
-        title = extract_by_prominence(document)
-        if title:
-            print(f"\nProminent Title: {title}")
-    except FileNotFoundError:
-        print(f"Error: The file '{pdf_path}' was not found. Please provide a valid path for testing.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    potential_title = " ".join([line['text'] for line in final_title_lines])
+
+    print(f"Success: Found potential title by prominence: '{potential_title}'")
+    return potential_title
+

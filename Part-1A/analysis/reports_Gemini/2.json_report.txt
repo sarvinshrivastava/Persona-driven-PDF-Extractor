@@ -1,20 +1,22 @@
-Similarity Score (1-10): 4.4
+Similarity Score (1-10): 8.11
 ==================================================
 Differences:
 
---- ./Json_O_Gemini/2.json+++ ./Json_I/2.json@@ -1,85 +1,90 @@ {
--    "title": "ISTQB Expert Level Modules Overview",
+--- ./Json_O_Gemini/2.json+++ ./Json_I/2.json@@ -1,80 +1,90 @@ {
+-    "title": "Foundation Level Extensions",
 +    "title": "Overview  Foundation Level Extensions  ",
      "outline": [
          {
-             "level": "H1",
--            "text": "Foundation Level Extensions",
+-            "level": "H4",
+-            "text": "International Software Testing Qualifications Board",
 -            "page": 1
++            "level": "H1",
 +            "text": "Revision History ",
 +            "page": 2
-+        },
-+        {
-+            "level": "H1",
+         },
+         {
+             "level": "H1",
+-            "text": "1. Introduction to the Foundation Level Extensions",
 +            "text": "Table of Contents ",
 +            "page": 3
 +        },
@@ -31,12 +33,12 @@ Differences:
 +        {
 +            "level": "H1",
 +            "text": "2. Introduction to Foundation Level Agile Tester Extension ",
-+            "page": 6
+             "page": 6
          },
          {
-             "level": "H2",
--            "text": "International Software Testing Qualifications Board",
--            "page": 1
+-            "level": "H1",
+-            "text": "2. Introduction to Foundation Level Agile Tester Extension",
++            "level": "H2",
 +            "text": "2.1 Intended Audience ",
 +            "page": 6
 +        },
@@ -53,100 +55,84 @@ Differences:
 +        {
 +            "level": "H2",
 +            "text": "2.4 Entry Requirements ",
-+            "page": 7
-+        },
-+        {
-+            "level": "H2",
-+            "text": "2.5 Structure and Course Duration ",
-+            "page": 7
-+        },
-+        {
-+            "level": "H2",
-+            "text": "2.6 Keeping It Current ",
-+            "page": 8
+             "page": 7
          },
          {
-             "level": "H1",
--            "text": "Overview",
--            "page": 1
+-            "level": "H3",
+-            "text": "2.1 Intended Audience",
++            "level": "H2",
++            "text": "2.5 Structure and Course Duration ",
+             "page": 7
+         },
+         {
+-            "level": "H3",
+-            "text": "2.2 Career Paths for Testers",
+-            "page": 7
+-        },
+-        {
+-            "level": "H3",
+-            "text": "2.3 Learning Objectives",
+-            "page": 7
+-        },
+-        {
+-            "level": "H3",
+-            "text": "2.4 Entry Requirements",
++            "level": "H2",
++            "text": "2.6 Keeping It Current ",
+             "page": 8
+         },
+         {
+-            "level": "H3",
+-            "text": "2.5 Structure and Course Duration",
+-            "page": 8
++            "level": "H1",
 +            "text": "3. Overview of the Foundation Level Extension \u2013 Agile TesterSyllabus ",
 +            "page": 9
          },
          {
 -            "level": "H3",
--            "text": "Revision History",
--            "page": 3
+-            "text": "2.6 Keeping It Current",
 +            "level": "H2",
 +            "text": "3.1 Business Outcomes ",
 +            "page": 9
-         },
-         {
--            "level": "H3",
--            "text": "Table of Contents",
--            "page": 4
++        },
++        {
 +            "level": "H2",
 +            "text": "3.2 Content ",
-+            "page": 9
+             "page": 9
          },
          {
+             "level": "H1",
+-            "text": "3. Overview of the Foundation Level Extension – Agile Tester",
+-            "page": 10
+-        },
+-        {
 -            "level": "H3",
--            "text": "Acknowledgements",
--            "page": 5
-+            "level": "H1",
+-            "text": "3.1 Business Outcomes",
+-            "page": 10
+-        },
+-        {
+-            "level": "H3",
+-            "text": "3.2 Content",
+-            "page": 10
 +            "text": "4. References ",
 +            "page": 11
          },
          {
--            "level": "H3",
--            "text": "1.",
--            "page": 6
-+            "level": "H2",
+             "level": "H2",
+-            "text": "4. References",
+-            "page": 12
 +            "text": "4.1 Trademarks ",
 +            "page": 11
          },
          {
 -            "level": "H3",
--            "text": "Introduction to the Foundation Level Extensions",
--            "page": 6
--        },
--        {
--            "level": "H3",
--            "text": "2.",
--            "page": 7
--        },
--        {
--            "level": "H3",
--            "text": "Introduction to Foundation Level Agile Tester Extension",
--            "page": 7
--        },
--        {
--            "level": "H3",
--            "text": "3.",
--            "page": 10
--        },
--        {
--            "level": "H3",
--            "text": "Agile Tester",
--            "page": 10
--        },
--        {
--            "level": "H3",
--            "text": "Overview of the Foundation Level Extension –",
--            "page": 10
--        },
--        {
--            "level": "H3",
--            "text": "Syllabus",
--            "page": 10
--        },
--        {
--            "level": "H3",
--            "text": "4.",
+-            "text": "4.1 Trademarks",
 -            "page": 12
 -        },
 -        {
 -            "level": "H3",
--            "text": "References",
+-            "text": "4.2 Documents and Web Sites",
 -            "page": 12
 +            "level": "H2",
 +            "text": "4.2 Documents and Web Sites ",

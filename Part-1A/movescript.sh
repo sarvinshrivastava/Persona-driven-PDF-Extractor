@@ -1,8 +1,9 @@
 #!/bin/bash
 
 SOURCE_DIR="./pdf_extractor_gemini/"
-DEST_DIR="./Json_O_Gemini/"
+DEST_DIR="./analysis/Json_O_Gemini/"
 
+rm -rf "$DEST_DIR"
 mkdir -p "$DEST_DIR"
 
 echo "Searching for .json files in '$SOURCE_DIR'..."

@@ -1,113 +1,118 @@
-import fitz # PyMuPDF
-import statistics
+import fitz  # PyMuPDF
+import re
+import json
 from collections import Counter
+from utils import stitch_text_lines
 
-def extract_by_font_size(doc: fitz.Document):
+def _parse_visual_toc(page: fitz.Page):
     """
-    Extracts the outline by clustering font sizes and validating heading structure.
-    This implements Steps 5 & 6 of the pipeline.
-
-    Args:
-        doc: The PyMuPDF document object.
-
-    Returns:
-        A list of outline items.
+    Parses a page that is visually identified as a Table of Contents using a more
+    flexible regex that handles different separators.
     """
-    print("Step 5 & 6: Trying to extract outline by font size and validate...")
+    outline = []
+    lines = stitch_text_lines(page)
     
-    spans_by_size = {}
-    all_text_lines = []
+    # More flexible regex: looks for section, text, then a wide gap or many dots, then a page number.
+    toc_pattern = re.compile(
+        r"^(?P<section>[\d\.]*\s*)?"       # Optional section number
+        r"(?P<text>.+?)"                  # The heading text
+        r"(?:\s*\.{3,}\s*|\s{4,})"         # Separator: 3+ dots OR 4+ spaces
+        r"(?P<page>\d+)\s*$"              # The page number
+    )
 
-    # Step 5: Parallel Span Extraction (simulated sequentially here)
+    for line in lines:
+        match = toc_pattern.match(line['text'])
+        if match:
+            data = match.groupdict()
+            section_str = (data.get('section') or "").strip()
+            level = section_str.count('.') + 1 if section_str else 1
+            
+            outline.append({
+                "level": f"H{level}",
+                "text": data['text'].strip(),
+                "page": int(data['page'])
+            })
+            
+    if outline:
+        print(f"Success: Parsed {len(outline)} entries from visual Table of Contents.")
+    return outline
+
+
+def _extract_by_rule_based_scoring(doc: fitz.Document, ignored_bboxes=None, title_text=""):
+    """
+    Extracts an outline using a more nuanced scoring model with negative filters.
+    """
+    all_lines = []
+    if ignored_bboxes is None:
+        ignored_bboxes = []
+
     for page_num, page in enumerate(doc):
-        page_dict = page.get_text("dict")
-        for block in page_dict['blocks']:
-            if block['type'] == 0: # Text block
-                for line in block['lines']:
-                    all_text_lines.append(line) # For validation later
-                    for span in line['spans']:
-                        size = round(span['size'])
-                        text = span['text'].strip()
-                        if not text:
-                            continue
-                        
-                        if size not in spans_by_size:
-                            spans_by_size[size] = []
-                        spans_by_size[size].append({'text': text, 'page': page_num + 1})
+        page_lines = stitch_text_lines(page)
+        for line in page_lines:
+            is_ignored = any(line['bbox'].intersects(ignored_box) for ignored_box in ignored_bboxes)
+            if not is_ignored and line['text'].strip().lower() != title_text.lower().strip():
+                line['page'] = page_num + 1
+                all_lines.append(line)
 
-    if not spans_by_size:
-        return []
+    if not all_lines: return []
 
-    # --- Font Size Clustering ---
-    # Find the most common font size, which is likely body text.
-    font_counts = Counter({size: len(spans) for size, spans in spans_by_size.items()})
-    body_size = font_counts.most_common(1)[0][0]
+    font_sizes = [line['size'] for line in all_lines if line['text'].strip()]
+    if not font_sizes: return []
+    body_size = Counter(round(s) for s in font_sizes).most_common(1)[0][0]
 
-    # Consider anything larger than body text as a potential heading.
-    heading_sizes = sorted([size for size in spans_by_size if size > body_size], reverse=True)
-    
-    # Take the top 3 largest font sizes as H1, H2, H3
-    heading_map = {size: f"H{i+1}" for i, size in enumerate(heading_sizes[:3])}
-    
-    if not heading_map:
-        print("Info: No distinct heading font sizes found larger than body text.")
-        return []
-
-    # --- Create a flat list of all potential headings ---
-    potential_headings = []
-    for size, level in heading_map.items():
-        for item in spans_by_size[size]:
-            potential_headings.append({
-                'level': level,
-                'text': item['text'],
-                'page': item['page'],
-                'size': size
-            })
-            
-    # Sort by page and then by text to maintain document order (as best as possible)
-    potential_headings.sort(key=lambda x: (x['page'], x['text']))
-    
-    # --- Step 6: Merge Phase for Validated Outline ---
-    # This is a simplified validation. A full implementation would need to analyze
-    # the position of text blocks that follow a heading.
-    validated_outline = []
-    for i, heading in enumerate(potential_headings):
-        is_valid = True
+    scored_lines = []
+    for line in all_lines:
+        score = 0
+        text = line['text'].strip()
         
-        # Rule: Not followed immediately by a sibling/higher-level heading
-        if i + 1 < len(potential_headings):
-            next_heading = potential_headings[i+1]
-            # Check if the next heading is on the same page and is of the same or higher level
-            if next_heading['page'] == heading['page']:
-                current_level_num = int(heading['level'][1:])
-                next_level_num = int(next_heading['level'][1:])
-                if next_level_num <= current_level_num:
-                    # This is a naive check. A better check would look at the text
-                    # between them. If there's no body text, it's likely invalid.
-                    # For this implementation, we'll be more lenient.
-                    pass 
+        # --- Negative Filters (what is NOT a heading) ---
+        if 'www.' in text.lower() or '.com' in text.lower() or re.match(r'^-+$', text):
+            continue
+        if text.endswith(":") and len(text) < 30: # Likely a form field
+            continue
 
-        # For this implementation, we accept most headings found.
-        if is_valid:
-            validated_outline.append({
-                'level': heading['level'],
-                'text': heading['text'],
-                'page': heading['page']
+        # --- Positive Scoring ---
+        if line['size'] > body_size + 0.5:
+            score += (line['size'] - body_size)
+            if line['bold']: score += 5
+            if line['centered']: score += 5
+            if re.match(r"^(?:[IVX\d]+[\.\)]|\w\.)", text, re.IGNORECASE): score += 10 # "1.", "A.", "IV."
+            if text.isupper() and len(text.split()) < 7: score += 5
+            if len(text) > 120 or text.endswith('.'): score -= 10
+
+        if score > 5:
+            line['score'] = score
+            scored_lines.append(line)
+
+    if not scored_lines: return []
+
+    scores = sorted(list(set([line['score'] for line in scored_lines])), reverse=True)
+    score_to_level = {score: f"H{i+1}" for i, score in enumerate(scores[:4])}
+
+    final_outline = []
+    for line in scored_lines:
+        if line['score'] in score_to_level:
+            final_outline.append({
+                "level": score_to_level[line['score']],
+                "text": line['text'].strip(),
+                "page": line['page']
             })
             
-    print(f"Success: Extracted {len(validated_outline)} potential headings based on font size.")
-    return validated_outline
+    print(f"Success: Extracted {len(final_outline)} headings using rule-based scoring.")
+    return final_outline
 
 
-if __name__ == '__main__':
-    try:
-        pdf_path = "example.pdf"
-        document = fitz.open(pdf_path)
-        outline = extract_by_font_size(document)
-        if outline:
-            print("\n--- Font-Size Based Outline ---")
-            print(json.dumps(outline, indent=4))
-    except FileNotFoundError:
-        print(f"Error: The file '{pdf_path}' was not found. Please provide a valid path for testing.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+def extract_outline(doc: fitz.Document, ignored_bboxes=None, title_text=""):
+    """Main outline extraction orchestrator."""
+    print("Step 5a: Searching for a visual Table of Contents page...")
+    for i in range(min(doc.page_count, 10)):
+        page = doc[i]
+        if "table of contents" in page.get_text().lower():
+            print(f"Info: Found 'Table of Contents' on page {i+1}. Attempting to parse.")
+            visual_outline = _parse_visual_toc(page)
+            if visual_outline:
+                return visual_outline
+    
+    print("Step 5b: No visual ToC found. Falling back to rule-based heading detection...")
+    return _extract_by_rule_based_scoring(doc, ignored_bboxes, title_text)
+

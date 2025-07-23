@@ -1,68 +1,77 @@
-import fitz # PyMuPDF
+import fitz  # PyMuPDF
 import json
 import argparse
 import os
 
-# Import the modular functions
+# Importing modules
+from utils import detect_repeating_headers_footers
+from classifier import classify_document
 from toc_extractor import extract_from_toc
 from metadata_extractor import extract_from_metadata
-from title_extractor import extract_by_prominence
-from outline_extractor import extract_by_font_size
-from ocr_fallback import ocr_first_page_for_title
+from title_extractor import extract_title as extract_title_by_prominence
+from outline_extractor import extract_outline as extract_outline_by_rules
+
 
 def process_pdf(pdf_path: str):
-    """
-    Main execution function that runs the full extraction pipeline.
-    
-    Args:
-        pdf_path: The path to the PDF file to process.
-    """
+    """Main execution function that runs the full, intelligent extraction pipeline."""
     print(f"\n--- Starting PDF Extraction Pipeline for: {pdf_path} ---")
 
     try:
-        # Step 1: File Setup (Load PDF)
         doc = fitz.open(pdf_path)
     except Exception as e:
-        print(f"Critical Error: Could not open or process the PDF file. Reason: {e}")
+        print(f"CRITICAL ERROR: Could not open or process the PDF file. Reason: {e}")
         return
 
+    # --- Phase 1: Pre-computation and Classification ---
+    print("\n--- Phase 1: Pre-computation & Classification ---")
+    # *** Use the new, intelligent classifier ***
+    doc_type = classify_document(doc) 
+    ignored_bboxes = detect_repeating_headers_footers(doc)
+    
     final_title = ""
     final_outline = []
 
-    # Step 2: Try Built-In Bookmarks (TOC) for the outline
+    # --- Phase 2: Adaptive Extraction ---
+    print("\n--- Phase 2: Adaptive Extraction ---")
+
+    # 1. Get machine-readable bookmarks first, as they are the most reliable source.
+    print("Step 2: Checking for machine-readable bookmarks (TOC)...")
     final_outline = extract_from_toc(doc)
-    print("-" * 20)
 
-    # --- Title Extraction Logic ---
-    # Step 3: Try PDF Metadata Title
-    final_title = extract_from_metadata(doc)
+    # 2. Extract title using prominence. This is useful for all document types.
     print("-" * 20)
-
-    # Step 4: Prominence-Based Title Detection (if metadata title is missing/generic)
-    generic_titles = ['title', 'untitled']
-    if not final_title or final_title.lower() in generic_titles:
-        final_title = extract_by_prominence(doc)
-    print("-" * 20)
-
-    # --- Outline Extraction Logic ---
-    # Step 5 & 6: Font-Size-Based Outline Extraction (if TOC was empty)
-    if not final_outline:
-        final_outline = extract_by_font_size(doc)
-    print("-" * 20)
-
-    # --- Fallback Logic ---
-    # Step 7: Selective Tesseract OCR Fallback (if still no title)
-    has_text_content = bool(final_title) or bool(final_outline)
-    if not has_text_content:
-        print("\nInfo: No text-based title or outline found. Attempting OCR as a last resort.")
-        ocr_title = ocr_first_page_for_title(doc)
-        if ocr_title:
-            final_title = ocr_title
-    print("-" * 20)
+    prominent_title = extract_title_by_prominence(doc, ignored_bboxes)
     
-    # Step 8: Write Final JSON
+    # 3. If no outline was found via bookmarks, use the visual/rule-based methods.
+    if not final_outline:
+        print("Info: No bookmarks found. Proceeding with visual outline extraction.")
+        final_outline = extract_outline_by_rules(doc, ignored_bboxes, prominent_title)
+
+    # 4. Decide on the final title based on document type
+    if doc_type == "Regular":
+        final_title = prominent_title
+        # Fallback to metadata only if prominence fails completely
+        if not final_title:
+            print("Step 3: Prominence title failed, checking metadata...")
+            final_title = extract_from_metadata(doc)
+    else: # For Flyers, we start with an empty title
+        final_title = ""
+
+    # --- Phase 3: Post-Processing and Cleanup ---
+    print("\n--- Phase 3: Post-Processing & Cleanup ---")
+    
+    # Rule 1: If we have a flyer with no title and a single H1, that H1 is probably the title.
+    if doc_type == "Flyer" and not final_title and len(final_outline) == 1:
+        print("Info: Post-processing found a single heading in a flyer. Promoting to title.")
+        final_title = final_outline.pop(0)['text']
+    
+    # Rule 2: If the prominent title is the same as the first heading, remove the heading.
+    if final_outline and prominent_title and (final_outline[0]['text'].lower().strip() == prominent_title.lower().strip()):
+        print("Info: Post-processing is removing title from outline to prevent duplication.")
+        final_outline.pop(0)
+
     output_data = {
-        "title": final_title,
+        "title": final_title.strip(),
         "outline": final_outline
     }
 
@@ -70,18 +79,15 @@ def process_pdf(pdf_path: str):
     print(json.dumps(output_data, indent=4))
     
     # Save to file
-    output_filename = os.path.splitext(os.path.basename(pdf_path))[0] + "_output.json"
+    output_filename = os.path.splitext(os.path.basename(pdf_path))[0] + ".json"
     with open(output_filename, 'w', encoding='utf-8') as f:
         json.dump(output_data, f, ensure_ascii=False, indent=4)
     print(f"\nOutput saved to {output_filename}")
 
     doc.close()
 
-
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description="Extracts title and outline from a PDF file based on the strategy in the provided document."
-    )
+    parser = argparse.ArgumentParser(description="Extracts title and outline from a PDF file using an intelligent, adaptive pipeline.")
     parser.add_argument("pdf_path", type=str, help="The path to the PDF file.")
     args = parser.parse_args()
 
@@ -89,5 +95,3 @@ if __name__ == '__main__':
         print(f"Error: The file '{args.pdf_path}' does not exist.")
     else:
         process_pdf(args.pdf_path)
-
-

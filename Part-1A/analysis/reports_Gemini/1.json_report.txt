@@ -1,16 +1,9 @@
-Similarity Score (1-10): 4.88
+Similarity Score (1-10): 9.88
 ==================================================
 Differences:
 
---- ./Json_O_Gemini/1.json+++ ./Json_I/1.json@@ -1,10 +1,4 @@ {
--    "title": "Microsoft Word - LTC_CLAIM_FORMS .doc",
--    "outline": [
--        {
--            "level": "H1",
--            "text": "Application form for grant of LTC advance",
--            "page": 1
--        }
--    ]
+--- ./Json_O_Gemini/1.json+++ ./Json_I/1.json@@ -1,4 +1,4 @@ {
+-    "title": "Application form for grant of LTC advance",
 +    "title": "Application form for grant of LTC advance  ",
-+    "outline": []
+     "outline": []
  }
